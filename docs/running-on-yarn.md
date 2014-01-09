@@ -12,7 +12,7 @@ was added to Spark in version 0.6.0, and improved in 0.7.0 and 0.8.0.
 We need a consolidated Spark JAR (which bundles all the required dependencies) to run Spark jobs on a YARN cluster.
 This can be built by setting the Hadoop version and `SPARK_YARN` environment variable, as follows:
 
-    SPARK_HADOOP_VERSION=2.0.5-alpha SPARK_YARN=true ./sbt/sbt assembly
+    SPARK_HADOOP_VERSION=2.0.5-alpha SPARK_YARN=true sbt/sbt assembly
 
 The assembled JAR will be something like this:
 `./assembly/target/scala-{{site.SCALA_VERSION}}/spark-assembly_{{site.SPARK_VERSION}}-hadoop2.0.5.jar`.
@@ -54,7 +54,7 @@ There are two scheduler mode that can be used to launch spark application on YAR
 
 The command to launch the YARN Client is as follows:
 
-    SPARK_JAR=<SPARK_ASSEMBLY_JAR_FILE> ./spark-class org.apache.spark.deploy.yarn.Client \
+    SPARK_JAR=<SPARK_ASSEMBLY_JAR_FILE> ./bin/spark-class org.apache.spark.deploy.yarn.Client \
       --jar <YOUR_APP_JAR_FILE> \
       --class <APP_MAIN_CLASS> \
       --args <APP_MAIN_ARGUMENTS> \
@@ -72,14 +72,14 @@ The command to launch the YARN Client is as follows:
 For example:
 
     # Build the Spark assembly JAR and the Spark examples JAR
-    $ SPARK_HADOOP_VERSION=2.0.5-alpha SPARK_YARN=true ./sbt/sbt assembly
+    $ SPARK_HADOOP_VERSION=2.0.5-alpha SPARK_YARN=true sbt/sbt assembly
 
     # Configure logging
     $ cp conf/log4j.properties.template conf/log4j.properties
 
     # Submit Spark's ApplicationMaster to YARN's ResourceManager, and instruct Spark to run the SparkPi example
     $ SPARK_JAR=./assembly/target/scala-{{site.SCALA_VERSION}}/spark-assembly-{{site.SPARK_VERSION}}-hadoop2.0.5-alpha.jar \
-        ./spark-class org.apache.spark.deploy.yarn.Client \
+        ./bin/spark-class org.apache.spark.deploy.yarn.Client \
           --jar examples/target/scala-{{site.SCALA_VERSION}}/spark-examples-assembly-{{site.SPARK_VERSION}}.jar \
           --class org.apache.spark.examples.SparkPi \
           --args yarn-standalone \
@@ -107,12 +107,14 @@ For example:
 
     SPARK_JAR=./assembly/target/scala-{{site.SCALA_VERSION}}/spark-assembly-{{site.SPARK_VERSION}}-hadoop2.0.5-alpha.jar \
     SPARK_YARN_APP_JAR=examples/target/scala-{{site.SCALA_VERSION}}/spark-examples-assembly-{{site.SPARK_VERSION}}.jar \
-    ./run-example org.apache.spark.examples.SparkPi yarn-client
+    ./bin/run-example org.apache.spark.examples.SparkPi yarn-client
 
 
     SPARK_JAR=./assembly/target/scala-{{site.SCALA_VERSION}}/spark-assembly-{{site.SPARK_VERSION}}-hadoop2.0.5-alpha.jar \
     SPARK_YARN_APP_JAR=examples/target/scala-{{site.SCALA_VERSION}}/spark-examples-assembly-{{site.SPARK_VERSION}}.jar \
-    MASTER=yarn-client ./spark-shell
+    MASTER=yarn-client ./bin/spark-shell
+
+You can also send extra files to yarn cluster for worker to use by exporting SPARK_YARN_DIST_FILES=file1,file2... etc.
 
 # Building Spark for Hadoop/YARN 2.2.x
 
