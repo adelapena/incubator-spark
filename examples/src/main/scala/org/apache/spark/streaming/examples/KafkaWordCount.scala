@@ -23,6 +23,7 @@ import kafka.producer._
 
 import org.apache.spark.streaming._
 import org.apache.spark.streaming.StreamingContext._
+import org.apache.spark.streaming.kafka._
 import org.apache.spark.streaming.util.RawTextHelper._
 
 /**
@@ -35,15 +36,16 @@ import org.apache.spark.streaming.util.RawTextHelper._
  *   <numThreads> is the number of threads the kafka consumer should use
  *
  * Example:
- *    `./bin/run-example spark.streaming.examples.KafkaWordCount local[2] zoo01,zoo02,zoo03 my-consumer-group topic1,topic2 1`
+ *    `./bin/run-example org.apache.spark.streaming.examples.KafkaWordCount local[2] zoo01,zoo02,zoo03 my-consumer-group topic1,topic2 1`
  */
 object KafkaWordCount {
   def main(args: Array[String]) {
-    
     if (args.length < 5) {
       System.err.println("Usage: KafkaWordCount <master> <zkQuorum> <group> <topics> <numThreads>")
       System.exit(1)
     }
+
+    StreamingExamples.setStreamingLogLevels()
 
     val Array(master, zkQuorum, group, topics, numThreads) = args
 
@@ -52,13 +54,14 @@ object KafkaWordCount {
     ssc.checkpoint("checkpoint")
 
     val topicpMap = topics.split(",").map((_,numThreads.toInt)).toMap
-    val lines = ssc.kafkaStream(zkQuorum, group, topicpMap).map(_._2)
+    val lines = KafkaUtils.createStream(ssc, zkQuorum, group, topicpMap).map(_._2)
     val words = lines.flatMap(_.split(" "))
     val wordCounts = words.map(x => (x, 1l))
       .reduceByKeyAndWindow(add _, subtract _, Minutes(10), Seconds(2), 2)
     wordCounts.print()
     
     ssc.start()
+    ssc.awaitTermination()
   }
 }
 

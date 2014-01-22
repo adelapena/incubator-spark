@@ -17,9 +17,10 @@
 
 package org.apache.spark.streaming.examples
 
-import org.apache.spark.util.IntParam
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming._
+import org.apache.spark.streaming.flume._
+import org.apache.spark.util.IntParam
 
 /**
  *  Produces a count of events received from Flume.
@@ -43,6 +44,8 @@ object FlumeEventCount {
       System.exit(1)
     }
 
+    StreamingExamples.setStreamingLogLevels()
+
     val Array(master, host, IntParam(port)) = args
 
     val batchInterval = Milliseconds(2000)
@@ -51,11 +54,12 @@ object FlumeEventCount {
       System.getenv("SPARK_HOME"), StreamingContext.jarOfClass(this.getClass))
 
     // Create a flume stream
-    val stream = ssc.flumeStream(host,port,StorageLevel.MEMORY_ONLY)
+    val stream = FlumeUtils.createStream(ssc, host,port,StorageLevel.MEMORY_ONLY_SER_2)
 
     // Print out the count of events received from this server in each batch
     stream.count().map(cnt => "Received " + cnt + " flume events." ).print()
 
     ssc.start()
+    ssc.awaitTermination()
   }
 }

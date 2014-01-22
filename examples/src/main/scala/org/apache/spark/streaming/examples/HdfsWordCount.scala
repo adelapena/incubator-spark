@@ -20,7 +20,6 @@ package org.apache.spark.streaming.examples
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.StreamingContext._
 
-
 /**
  * Counts words in new text files created in the given directory
  * Usage: HdfsWordCount <master> <directory>
@@ -28,7 +27,7 @@ import org.apache.spark.streaming.StreamingContext._
  *   <directory> is the directory that Spark Streaming will use to find and read new text files.
  *
  * To run this on your local machine on directory `localdir`, run this example
- *    `$ ./bin/run-example spark.streaming.examples.HdfsWordCount local[2] localdir`
+ *    `$ ./bin/run-example org.apache.spark.streaming.examples.HdfsWordCount local[2] localdir`
  * Then create a text file in `localdir` and the words in the file will get counted.
  */
 object HdfsWordCount {
@@ -37,6 +36,8 @@ object HdfsWordCount {
       System.err.println("Usage: HdfsWordCount <master> <directory>")
       System.exit(1)
     }
+
+    StreamingExamples.setStreamingLogLevels()
 
     // Create the context
     val ssc = new StreamingContext(args(0), "HdfsWordCount", Seconds(2),
@@ -49,6 +50,7 @@ object HdfsWordCount {
     val wordCounts = words.map(x => (x, 1)).reduceByKey(_ + _)
     wordCounts.print()
     ssc.start()
+    ssc.awaitTermination()
   }
 }
 

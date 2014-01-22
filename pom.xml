@@ -87,12 +87,18 @@
   <modules>
     <module>core</module>
     <module>bagel</module>
-    <module>examples</module>
+    <module>graphx</module>
     <module>mllib</module>
     <module>tools</module>
     <module>streaming</module>
     <module>repl</module>
     <module>assembly</module>
+    <module>external/twitter</module>
+    <module>external/kafka</module>
+    <module>external/flume</module>
+    <module>external/zeromq</module>
+    <module>external/mqtt</module>
+    <module>examples</module>
   </modules>
 
   <properties>
@@ -118,7 +124,7 @@
   </properties>
 
   <repositories>
-    <repository> 
+    <repository>
       <id>maven-repo</id> <!-- This should be at top, it makes maven try the central repo first and then others and hence faster dep resolution -->
       <name>Maven Repository</name>
       <url>http://repo.maven.apache.org/maven2</url>
@@ -141,15 +147,9 @@
       </snapshots>
     </repository>
     <repository>
-      <id>mqtt-repo</id>
-      <name>MQTT Repository</name>
-      <url>https://repo.eclipse.org/content/repositories/paho-releases</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
+      <id>cloudera-repo</id>
+      <name>Cloudera Repository</name>
+      <url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
     </repository>
   </repositories>
 
@@ -207,7 +207,7 @@
       </dependency>
       <!-- In theory we need not directly depend on protobuf since Spark does not directly
            use it. However, when building with Hadoop/YARN 2.2 Maven doesn't correctly bump
-           the protobuf version up from the one Mesos gives. For now we include this variable 
+           the protobuf version up from the one Mesos gives. For now we include this variable
            to explicitly bump the version when building with YARN. It would be nice to figure
            out why Maven can't resolve this correctly (like SBT does). -->
       <dependency>
@@ -260,7 +260,7 @@
       </dependency>
       <dependency>
         <groupId>${akka.group}</groupId>
-        <artifactId>akka-zeromq_${scala.binary.version}</artifactId>
+        <artifactId>akka-testkit_${scala.binary.version}</artifactId>
         <version>${akka.version}</version>
         <exclusions>
           <exclusion>
@@ -356,6 +356,12 @@
         <artifactId>scalatest_${scala.binary.version}</artifactId>
         <version>1.9.1</version>
         <scope>test</scope>
+      </dependency>
+      <dependency>
+          <groupId>org.mockito</groupId>
+          <artifactId>mockito-all</artifactId>
+          <scope>test</scope>
+          <version>1.8.5</version>
       </dependency>
       <dependency>
         <groupId>commons-io</groupId>
@@ -747,16 +753,6 @@
         <module>yarn</module>
       </modules>
 
-    </profile>
-
-    <profile>
-      <id>repl-bin</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <modules>
-        <module>repl-bin</module>
-      </modules>
     </profile>
   </profiles>
 </project>

@@ -17,17 +17,13 @@
 
 package org.apache.spark.streaming.examples
 
-import org.apache.spark.streaming.{ Seconds, StreamingContext }
-import org.apache.spark.streaming.StreamingContext._
-import org.apache.spark.streaming.dstream.MQTTReceiver
-import org.apache.spark.storage.StorageLevel
-
-import org.eclipse.paho.client.mqttv3.MqttClient
-import org.eclipse.paho.client.mqttv3.MqttClientPersistence
+import org.eclipse.paho.client.mqttv3.{MqttClient, MqttClientPersistence, MqttException, MqttMessage, MqttTopic}
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence
-import org.eclipse.paho.client.mqttv3.MqttException
-import org.eclipse.paho.client.mqttv3.MqttMessage
-import org.eclipse.paho.client.mqttv3.MqttTopic
+
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.StreamingContext._
+import org.apache.spark.streaming.mqtt._
 
 /**
  * A simple Mqtt publisher for demonstration purposes, repeatedly publishes 
@@ -42,6 +38,8 @@ object MQTTPublisher {
       System.err.println("Usage: MQTTPublisher <MqttBrokerUrl> <topic>")
       System.exit(1)
     }
+
+    StreamingExamples.setStreamingLogLevels()
 
     val Seq(brokerUrl, topic) = args.toSeq
 
@@ -97,11 +95,12 @@ object MQTTWordCount {
 
     val ssc = new StreamingContext(master, "MqttWordCount", Seconds(2), System.getenv("SPARK_HOME"), 
     StreamingContext.jarOfClass(this.getClass))
-    val lines = ssc.mqttStream(brokerUrl, topic, StorageLevel.MEMORY_ONLY)
+    val lines = MQTTUtils.createStream(ssc, brokerUrl, topic, StorageLevel.MEMORY_ONLY_SER_2)
 
     val words = lines.flatMap(x => x.toString.split(" "))
     val wordCounts = words.map(x => (x, 1)).reduceByKey(_ + _)
     wordCounts.print()
     ssc.start()
+    ssc.awaitTermination()
   }
 }

@@ -43,8 +43,8 @@ class CheckpointRDD[T: ClassTag](sc: SparkContext, val checkpointPath: String)
     val numPartitions =
     // listStatus can throw exception if path does not exist.
     if (fs.exists(cpath)) {
-      val dirContents = fs.listStatus(cpath)
-      val partitionFiles = dirContents.map(_.getPath.toString).filter(_.contains("part-")).sorted
+      val dirContents = fs.listStatus(cpath).map(_.getPath)
+      val partitionFiles = dirContents.filter(_.getName.startsWith("part-")).map(_.toString).sorted
       val numPart =  partitionFiles.size
       if (numPart > 0 && (! partitionFiles(0).endsWith(CheckpointRDD.splitIdToFile(0)) ||
           ! partitionFiles(numPart-1).endsWith(CheckpointRDD.splitIdToFile(numPart-1)))) {
@@ -97,7 +97,7 @@ private[spark] object CheckpointRDD extends Logging {
       throw new IOException("Checkpoint failed: temporary path " +
         tempOutputPath + " already exists")
     }
-    val bufferSize = env.conf.get("spark.buffer.size", "65536").toInt
+    val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
 
     val fileOutputStream = if (blockSize < 0) {
       fs.create(tempOutputPath, false, bufferSize)
@@ -131,7 +131,7 @@ private[spark] object CheckpointRDD extends Logging {
     ): Iterator[T] = {
     val env = SparkEnv.get
     val fs = path.getFileSystem(broadcastedConf.value.value)
-    val bufferSize = env.conf.get("spark.buffer.size", "65536").toInt
+    val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
     val fileInputStream = fs.open(path, bufferSize)
     val serializer = env.serializer.newInstance()
     val deserializeStream = serializer.deserializeStream(fileInputStream)

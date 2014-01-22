@@ -17,7 +17,7 @@
 
 package org.apache.spark.streaming
 
-import org.apache.spark.streaming.dstream.{InputDStream, ForEachDStream}
+import org.apache.spark.streaming.dstream.{DStream, InputDStream, ForEachDStream}
 import org.apache.spark.streaming.util.ManualClock
 
 import scala.collection.mutable.ArrayBuffer
@@ -137,21 +137,17 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
   val conf = new SparkConf()
     .setMaster(master)
     .setAppName(framework)
-    .set("spark.cleaner.ttl", "3600")
+    .set("spark.cleaner.ttl", StreamingContext.DEFAULT_CLEANER_TTL.toString)
 
   // Default before function for any streaming test suite. Override this
   // if you want to add your stuff to "before" (i.e., don't call before { } )
   def beforeFunction() {
-    //if (useManualClock) {
-    //  System.setProperty(
-    //    "spark.streaming.clock",
-    //    "org.apache.spark.streaming.util.ManualClock"
-    //  )
-    //} else {
-    //  System.clearProperty("spark.streaming.clock")
-    //}
     if (useManualClock) {
+      logInfo("Using manual clock")
       conf.set("spark.streaming.clock", "org.apache.spark.streaming.util.ManualClock")
+    } else {
+      logInfo("Using real clock")
+      conf.set("spark.streaming.clock", "org.apache.spark.streaming.util.SystemClock")
     }
   }
 
@@ -160,7 +156,6 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
   def afterFunction() {
     // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
     System.clearProperty("spark.driver.port")
-    System.clearProperty("spark.hostPort")
   }
 
   before(beforeFunction)
@@ -175,9 +170,8 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
       operation: DStream[U] => DStream[V],
       numPartitions: Int = numInputPartitions
     ): StreamingContext = {
-    val sc = new SparkContext(conf)
     // Create StreamingContext
-    val ssc = new StreamingContext(sc, batchDuration)
+    val ssc = new StreamingContext(conf, batchDuration)
     if (checkpointDir != null) {
       ssc.checkpoint(checkpointDir)
     }
@@ -187,8 +181,7 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
     val operatedStream = operation(inputStream)
     val outputStream = new TestOutputStreamWithPartitions(operatedStream,
       new ArrayBuffer[Seq[Seq[V]]] with SynchronizedBuffer[Seq[Seq[V]]])
-    ssc.registerInputStream(inputStream)
-    ssc.registerOutputStream(outputStream)
+    outputStream.register()
     ssc
   }
 
@@ -201,9 +194,8 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
       input2: Seq[Seq[V]],
       operation: (DStream[U], DStream[V]) => DStream[W]
     ): StreamingContext = {
-    val sc = new SparkContext(conf)
     // Create StreamingContext
-    val ssc = new StreamingContext(sc, batchDuration)
+    val ssc = new StreamingContext(conf, batchDuration)
     if (checkpointDir != null) {
       ssc.checkpoint(checkpointDir)
     }
@@ -214,9 +206,7 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
     val operatedStream = operation(inputStream1, inputStream2)
     val outputStream = new TestOutputStreamWithPartitions(operatedStream,
       new ArrayBuffer[Seq[Seq[W]]] with SynchronizedBuffer[Seq[Seq[W]]])
-    ssc.registerInputStream(inputStream1)
-    ssc.registerInputStream(inputStream2)
-    ssc.registerOutputStream(outputStream)
+    outputStream.register()
     ssc
   }
 
@@ -279,10 +269,11 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
       val startTime = System.currentTimeMillis()
       while (output.size < numExpectedOutput && System.currentTimeMillis() - startTime < maxWaitTimeMillis) {
         logInfo("output.size = " + output.size + ", numExpectedOutput = " + numExpectedOutput)
-        Thread.sleep(100)
+        ssc.awaitTermination(50)
       }
       val timeTaken = System.currentTimeMillis() - startTime
-
+      logInfo("Output generated in " + timeTaken + " milliseconds")
+      output.foreach(x => logInfo("[" + x.mkString(",") + "]"))
       assert(timeTaken < maxWaitTimeMillis, "Operation timed out after " + timeTaken + " ms")
       assert(output.size === numExpectedOutput, "Unexpected number of outputs generated")
 

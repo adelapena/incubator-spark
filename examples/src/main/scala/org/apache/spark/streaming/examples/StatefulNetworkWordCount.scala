@@ -29,7 +29,7 @@ import org.apache.spark.streaming.StreamingContext._
  * To run this on your local machine, you need to first run a Netcat server
  *    `$ nc -lk 9999`
  * and then run the example
- *    `$ ./bin/run-example spark.streaming.examples.StatefulNetworkWordCount local[2] localhost 9999`
+ *    `$ ./bin/run-example org.apache.spark.streaming.examples.StatefulNetworkWordCount local[2] localhost 9999`
  */
 object StatefulNetworkWordCount {
   def main(args: Array[String]) {
@@ -38,6 +38,8 @@ object StatefulNetworkWordCount {
         "In local mode, <master> should be 'local[n]' with n > 1")
       System.exit(1)
     }
+
+    StreamingExamples.setStreamingLogLevels()
 
     val updateFunc = (values: Seq[Int], state: Option[Int]) => {
       val currentCount = values.foldLeft(0)(_ + _)
@@ -63,5 +65,6 @@ object StatefulNetworkWordCount {
     val stateDstream = wordDstream.updateStateByKey[Int](updateFunc)
     stateDstream.print()
     ssc.start()
+    ssc.awaitTermination()
   }
 }

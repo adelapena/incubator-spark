@@ -40,8 +40,6 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
   var actorSystem: ActorSystem = null
   var master: BlockManagerMaster = null
   var oldArch: String = null
-  var oldOops: String = null
-  var oldHeartBeat: String = null
 
   // Reuse a serializer across tests to avoid creating a new thread-local buffer on each test
   conf.set("spark.kryoserializer.buffer.mb", "1")
@@ -55,25 +53,21 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("test", "localhost", 0, conf = conf)
     this.actorSystem = actorSystem
     conf.set("spark.driver.port", boundPort.toString)
-    conf.set("spark.hostPort", "localhost:" + boundPort)
 
     master = new BlockManagerMaster(
-      Left(actorSystem.actorOf(Props(new BlockManagerMasterActor(true, conf)))), conf)
+      actorSystem.actorOf(Props(new BlockManagerMasterActor(true, conf))), conf)
 
     // Set the arch to 64-bit and compressedOops to true to get a deterministic test-case
-    System.setProperty("os.arch", "amd64")
+    oldArch = System.setProperty("os.arch", "amd64")
     conf.set("os.arch", "amd64")
     conf.set("spark.test.useCompressedOops", "true")
     conf.set("spark.storage.disableBlockManagerHeartBeat", "true")
     val initialize = PrivateMethod[Unit]('initialize)
     SizeEstimator invokePrivate initialize()
-    // Set some value ...
-    conf.set("spark.hostPort", Utils.localHostName() + ":" + 1111)
   }
 
   after {
     System.clearProperty("spark.driver.port")
-    System.clearProperty("spark.hostPort")
 
     if (store != null) {
       store.stop()
@@ -94,11 +88,7 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
       System.clearProperty("os.arch")
     }
 
-    if (oldOops != null) {
-      conf.set("spark.test.useCompressedOops", oldOops)
-    } else {
-      System.clearProperty("spark.test.useCompressedOops")
-    }
+    System.clearProperty("spark.test.useCompressedOops")
   }
 
   test("StorageLevel object caching") {

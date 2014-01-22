@@ -18,8 +18,8 @@ Spark provides three locations to configure the system:
 Spark properties control most application settings and are configured separately for each application.
 The preferred way to set them is by passing a [SparkConf](api/core/index.html#org.apache.spark.SparkConf)
 class to your SparkContext constructor.
-Alternatively, Spark will also load them from Java system properties (for compatibility with old versions
-of Spark) and from a [`spark.conf` file](#configuration-files) on your classpath.
+Alternatively, Spark will also load them from Java system properties, for compatibility with old versions
+of Spark.
 
 SparkConf lets you configure most of the common properties to initialize a cluster (e.g., master URL and
 application name), as well as arbitrary key-value pairs through the `set()` method. For example, we could
@@ -77,13 +77,14 @@ there are at least five properties that you will commonly want to control:
 </tr>
 <tr>
   <td>spark.cores.max</td>
-  <td>(infinite)</td>
+  <td>(not set)</td>
   <td>
     When running on a <a href="spark-standalone.html">standalone deploy cluster</a> or a
     <a href="running-on-mesos.html#mesos-run-modes">Mesos cluster in "coarse-grained"
     sharing mode</a>, the maximum amount of CPU cores to request for the application from
-    across the cluster (not from each machine). The default will use all available cores
-    offered by the cluster manager.
+    across the cluster (not from each machine). If not set, the default will be
+    <code>spark.deploy.defaultCores</code> on Spark's standalone cluster manager, or
+    infinite (all available cores) on Mesos.
   </td>
 </tr>
 </table>
@@ -97,17 +98,28 @@ Apart from these, the following properties are also available, and may be useful
   <td>spark.default.parallelism</td>
   <td>8</td>
   <td>
-    Default number of tasks to use for distributed shuffle operations (<code>groupByKey</code>,
+    Default number of tasks to use across the cluster for distributed shuffle operations (<code>groupByKey</code>,
     <code>reduceByKey</code>, etc) when not set by user.
   </td>
 </tr>
 <tr>
   <td>spark.storage.memoryFraction</td>
-  <td>0.66</td>
+  <td>0.6</td>
   <td>
     Fraction of Java heap to use for Spark's memory cache. This should not be larger than the "old"
-    generation of objects in the JVM, which by default is given 2/3 of the heap, but you can increase
+    generation of objects in the JVM, which by default is given 0.6 of the heap, but you can increase
     it if you configure your own old generation size.
+  </td>
+</tr>
+<tr>
+  <td>spark.shuffle.memoryFraction</td>
+  <td>0.3</td>
+  <td>
+    Fraction of Java heap to use for aggregation and cogroups during shuffles, if
+    <code>spark.shuffle.spill</code> is true. At any given time, the collective size of
+    all in-memory maps used for shuffles is bounded by this limit, beyond which the contents will
+    begin to spill to disk. If spills are often, consider increasing this value at the expense of
+    <code>spark.storage.memoryFraction</code>.
   </td>
 </tr>
 <tr>
@@ -129,7 +141,7 @@ Apart from these, the following properties are also available, and may be useful
   </td>
 </tr>
 <tr>
-  <td>spark.ui.retained_stages</td>
+  <td>spark.ui.retainedStages</td>
   <td>1000</td>
   <td>
     How many stages the Spark UI remembers before garbage collecting.
@@ -140,6 +152,15 @@ Apart from these, the following properties are also available, and may be useful
   <td>true</td>
   <td>
     Whether to compress map output files. Generally a good idea.
+  </td>
+</tr>
+<tr>
+  <td>spark.shuffle.spill.compress</td>
+  <td>true</td>
+  <td>
+    Whether to compress data spilled during shuffles. If enabled, spill compression
+    always uses the `org.apache.spark.io.LZFCompressionCodec` codec, 
+    regardless of the value of `spark.io.compression.codec`.
   </td>
 </tr>
 <tr>
@@ -360,11 +381,20 @@ Apart from these, the following properties are also available, and may be useful
     Too large a value decreases parallelism during broadcast (makes it slower); however, if it is too small, <code>BlockManager</code> might take a performance hit.
   </td>
 </tr>
+
 <tr>
   <td>spark.shuffle.consolidateFiles</td>
   <td>false</td>
   <td>
     If set to "true", consolidates intermediate files created during a shuffle. Creating fewer files can improve filesystem performance for shuffles with large numbers of reduce tasks. It is recommended to set this to "true" when using ext4 or xfs filesystems. On ext3, this option might degrade performance on machines with many (>8) cores due to filesystem limitations.
+  </td>
+</tr>
+<tr>
+  <td>spark.shuffle.spill</td>
+  <td>true</td>
+  <td>
+    If set to "true", limits the amount of memory used during reduces by spilling data out to disk. This spilling
+    threshold is specified by <code>spark.shuffle.memoryFraction</code>.
   </td>
 </tr>
 <tr>
@@ -395,36 +425,43 @@ Apart from these, the following properties are also available, and may be useful
     How many times slower a task is than the median to be considered for speculation.
   </td>
 </tr>
+<tr>
+  <td>spark.logConf</td>
+  <td>false</td>
+  <td>
+    Log the supplied SparkConf as INFO at start of spark context.
+  </td>
+</tr>
+<tr>
+  <td>spark.deploy.spreadOut</td>
+  <td>true</td>
+  <td>
+    Whether the standalone cluster manager should spread applications out across nodes or try
+    to consolidate them onto as few nodes as possible. Spreading out is usually better for
+    data locality in HDFS, but consolidating is more efficient for compute-intensive workloads. <br/>
+    <b>Note:</b> this setting needs to be configured in the standalone cluster master, not in individual
+    applications; you can set it through <code>SPARK_JAVA_OPTS</code> in <code>spark-env.sh</code>.
+  </td>
+</tr>
+<tr>
+  <td>spark.deploy.defaultCores</td>
+  <td>(infinite)</td>
+  <td>
+    Default number of cores to give to applications in Spark's standalone mode if they don't
+    set <code>spark.cores.max</code>. If not set, applications always get all available
+    cores unless they configure <code>spark.cores.max</code> themselves.
+    Set this lower on a shared cluster to prevent users from grabbing
+    the whole cluster by default. <br/>
+    <b>Note:</b> this setting needs to be configured in the standalone cluster master, not in individual
+    applications; you can set it through <code>SPARK_JAVA_OPTS</code> in <code>spark-env.sh</code>.
+  </td>
+</tr>
 </table>
 
 ## Viewing Spark Properties
 
 The application web UI at `http://<driver>:4040` lists Spark properties in the "Environment" tab.
 This is a useful place to check to make sure that your properties have been set correctly.
-
-## Configuration Files
-
-You can also configure Spark properties through a `spark.conf` file on your Java classpath.
-Because these properties are usually application-specific, we recommend putting this fine *only* on your
-application's classpath, and not in a global Spark classpath.
-
-The `spark.conf` file uses Typesafe Config's [HOCON format](https://github.com/typesafehub/config#json-superset),
-which is a superset of Java properties files and JSON. For example, the following is a simple config file:
-
-{% highlight awk %}
-# Comments are allowed
-spark.executor.memory = 512m
-spark.serializer = org.apache.spark.serializer.KryoSerializer
-{% endhighlight %}
-
-The format also allows hierarchical nesting, as follows:
-
-{% highlight awk %}
-spark.akka {
-  threads = 8
-  timeout = 200
-}
-{% endhighlight %}
 
 # Environment Variables
 

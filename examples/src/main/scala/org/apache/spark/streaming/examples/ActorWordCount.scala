@@ -18,17 +18,13 @@
 package org.apache.spark.streaming.examples
 
 import scala.collection.mutable.LinkedList
-import scala.util.Random
 import scala.reflect.ClassTag
+import scala.util.Random
 
-import akka.actor.Actor
-import akka.actor.ActorRef
-import akka.actor.Props
-import akka.actor.actorRef2Scala
+import akka.actor.{Actor, ActorRef, Props, actorRef2Scala}
 
 import org.apache.spark.SparkConf
-import org.apache.spark.streaming.Seconds
-import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.StreamingContext.toPairDStreamFunctions
 import org.apache.spark.streaming.receivers.Receiver
 import org.apache.spark.util.AkkaUtils
@@ -92,7 +88,7 @@ extends Actor with Receiver {
   override def preStart = remotePublisher ! SubscribeReceiver(context.self)
 
   def receive = {
-    case msg ⇒ context.parent ! pushBlock(msg.asInstanceOf[T])
+    case msg ⇒ pushBlock(msg.asInstanceOf[T])
   }
 
   override def postStop() = remotePublisher ! UnsubscribeReceiver(context.self)
@@ -134,9 +130,9 @@ object FeederActor {
  *   <hostname> and <port> describe the AkkaSystem that Spark Sample feeder is running on.
  *
  * To run this example locally, you may run Feeder Actor as
- *    `$ ./bin/run-example spark.streaming.examples.FeederActor 127.0.1.1 9999`
+ *    `$ ./bin/run-example org.apache.spark.streaming.examples.FeederActor 127.0.1.1 9999`
  * and then run the example
- *    `$ ./bin/run-example spark.streaming.examples.ActorWordCount local[2] 127.0.1.1 9999`
+ *    `$ ./bin/run-example org.apache.spark.streaming.examples.ActorWordCount local[2] 127.0.1.1 9999`
  */
 object ActorWordCount {
   def main(args: Array[String]) {
@@ -146,6 +142,8 @@ object ActorWordCount {
         "In local mode, <master> should be 'local[n]' with n > 1")
       System.exit(1)
     }
+
+    StreamingExamples.setStreamingLogLevels()
 
     val Seq(master, host, port) = args.toSeq
 
@@ -173,5 +171,6 @@ object ActorWordCount {
     lines.flatMap(_.split("\\s+")).map(x => (x, 1)).reduceByKey(_ + _).print()
 
     ssc.start()
+    ssc.awaitTermination()
   }
 }
